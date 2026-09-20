@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Rain Falling</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #7ec8f0;
+    font-family: ui-rounded, "SF Pro Rounded", Nunito, "Avenir Next", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  .hud {
+    position: fixed; top: 0; left: 0; right: 0; padding: 14px 18px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.18);
+  }
+  .score { font-size: 42px; font-weight: 800; line-height: 1; }
+  .score small { display: block; font-size: 15px; font-weight: 700; opacity: .85; letter-spacing: .08em; }
+  .level { font-size: 20px; font-weight: 800; background: rgba(255,255,255,.28);
+           padding: 8px 14px; border-radius: 999px; text-shadow: none; }
+
+  .banner {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    pointer-events: none; opacity: 0; transform: scale(.7);
+  }
+  .banner span {
+    font-size: 64px; font-weight: 900; color: #fff;
+    text-shadow: 0 6px 0 rgba(0,0,0,.2); padding: 0 24px; text-align: center;
+  }
+  .banner.show { animation: pop 1.4s ease-out forwards; }
+  @keyframes pop {
+    0%   { opacity: 0; transform: scale(.6) rotate(-6deg); }
+    18%  { opacity: 1; transform: scale(1.12) rotate(3deg); }
+    30%  { transform: scale(1) rotate(0); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.05); }
+  }
+
+  .sheet {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: rgba(28,60,90,.55); backdrop-filter: blur(6px); padding: 20px;
+  }
+  .sheet[hidden] { display: none; }
+  .card {
+    background: #fff; border-radius: 28px; padding: 28px; max-width: 560px; width: 100%;
+    box-shadow: 0 24px 60px rgba(0,0,0,.3); text-align: center;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .card h1 { margin: 0 0 4px; font-size: 44px; color: #1d5f8a; letter-spacing: -.02em; }
+  .card p  { margin: 0 0 20px; color: #5b7285; font-size: 17px; line-height: 1.5; }
+  button {
+    font: inherit; font-weight: 800; border: 0; cursor: pointer;
+    border-radius: 999px; padding: 16px 32px; font-size: 20px;
+    background: #ffb300; color: #4a2c00; box-shadow: 0 5px 0 #d99500;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 2px 0 #d99500; }
+  button.ghost { background: #eef3f7; color: #47657c; box-shadow: 0 5px 0 #d5e0e9; }
+  .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin: 8px 0 22px; }
+  .slot {
+    border: 3px dashed #c5d6e2; border-radius: 20px; padding: 10px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 6px; background: #f7fafc;
+  }
+  .slot.over { border-color: #ffb300; background: #fff6e0; }
+  .slot.filled { border-style: solid; border-color: #7ec8f0; background: #fff; }
+  .slot canvas { width: 72px; height: 72px; object-fit: contain; }
+  .slot b { font-size: 13px; color: #5b7285; }
+  .hint { font-size: 14px; color: #8aa2b3; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div class="hud">
+  <div class="score"><span id="score">0</span><small>CAUGHT</small></div>
+  <div class="level" id="level">Level 1</div>
+</div>
+
+<div class="banner" id="banner"><span></span></div>
+
+<div class="sheet" id="startSheet">
+  <div class="card">
+    <h1>Rain Falling</h1>
+    <p>Move the cat with your finger or the mouse. Catch every fish.</p>
+    <div class="row">
+      <button id="playBtn">Play</button>
+      <button class="ghost" id="artBtn">Use our drawings</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="artSheet" hidden>
+  <div class="card">
+    <h1>Our drawings</h1>
+    <p>Drop a photo on a square, or tap it to pick one. White paper around the drawing gets cut out for you.</p>
+    <div class="slots" id="slots"></div>
+    <div class="row">
+      <button id="artDone">Done</button>
+      <button class="ghost" id="artReset">Start over</button>
+    </div>
+    <div class="hint">To keep these drawings forever, save them into the <b>art</b> folder next to this file.</div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Rain Falling. One file, no build step, no libraries.
+// Art slots load from art/*.png on startup, or from photos dropped on the page.
+// ---------------------------------------------------------------------------
+
+const SLOTS = [
+  { key: 'catcher', label: 'Rain',    file: 'art/rain.png',   emoji: '\u{1F431}' },
+  { key: 'i1',      label: 'Fish',    file: 'art/item-1.png', emoji: '\u{1F41F}' },
+  { key: 'i2',      label: 'Thing 2', file: 'art/item-2.png', emoji: '\u2B50'    },
+  { key: 'i3',      label: 'Thing 3', file: 'art/item-3.png', emoji: '\u{1F34E}' },
+  { key: 'i4',      label: 'Thing 4', file: 'art/item-4.png', emoji: '\u{1F338}' },
+  { key: 'i5',      label: 'Thing 5', file: 'art/item-5.png', emoji: '\u{1F36A}' },
+];
+const ITEM_SLOTS = SLOTS.slice(1);
+
+// Only drop things Rain has actually drawn. Before any drawing is loaded the
+// emoji stand-ins all fall, so the game is playable on a fresh copy.
+function fallingKeys() {
+  const drawn = ITEM_SLOTS.filter(s => s.hasPhoto);
+  return (drawn.length ? drawn : ITEM_SLOTS).map(s => s.key);
+}
+
+const SKIES = [
+  ['#8fd6ff', '#d9f2ff'], ['#ffd6a5', '#ffeedd'], ['#c3b8ff', '#eae6ff'],
+  ['#a8e6cf', '#e4fff4'], ['#ffc6d9', '#ffeaf2'],
+];
+const CONFETTI = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#ff8fd1', '#ffa45c'];
+
+const art = {};            // key -> canvas
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+
+// --- art loading ------------------------------------------------------------
+
+function emojiCanvas(ch, size = 256) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.font = Math.round(size * 0.78) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(ch, size / 2, size / 2 + size * 0.04);
+  return c;
+}
+
+// Paint a photo onto a canvas, drop the paper background, crop to the drawing.
+function cutout(source) {
+  const maxSide = 480;
+  const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(source.width * scale));
+  c.height = Math.max(1, Math.round(source.height * scale));
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(source, 0, 0, c.width, c.height);
+
+  let img;
+  try { img = g.getImageData(0, 0, c.width, c.height); }
+  catch (e) { return c; }   // browser blocked pixel reads, use the photo as it is
+
+  dropBackground(img, c.width, c.height);
+  g.putImageData(img, 0, 0);
+  return trim(c);
+}
+
+// Flood fill inward from the border, clearing anything as pale as the paper.
+function dropBackground(img, w, h) {
+  const d = img.data;
+  const bright = i => Math.max(d[i], d[i + 1], d[i + 2]);
+  const flat = i => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
+
+  const edge = [];
+  for (let x = 0; x < w; x++) { edge.push(bright((x) * 4), bright(((h - 1) * w + x) * 4)); }
+  for (let y = 0; y < h; y++) { edge.push(bright((y * w) * 4), bright((y * w + w - 1) * 4)); }
+  edge.sort((a, b) => a - b);
+  const paper = edge[Math.floor(edge.length / 2)];
+  const cut = Math.max(105, paper - 58);
+
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  const push = p => {
+    if (p < 0 || p >= w * h || seen[p]) return;
+    const i = p * 4;
+    if (bright(i) < cut || flat(i) > 52) return;
+    seen[p] = 1;
+    stack.push(p);
+  };
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+
+  while (stack.length) {
+    const p = stack.pop();
+    d[p * 4 + 3] = 0;
+    const x = p % w;
+    if (x > 0) push(p - 1);
+    if (x < w - 1) push(p + 1);
+    push(p - w);
+    push(p + w);
+  }
+}
+
+function trim(c) {
+  const g = c.getContext('2d', { willReadFrequently: true });
+  let d;
+  try { d = g.getImageData(0, 0, c.width, c.height).data; }
+  catch (e) { return c; }
+
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < c.height; y++) {
+    for (let x = 0; x < c.width; x++) {
+      if (d[(y * c.width + x) * 4 + 3] > 24) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return c;
+
+  const pad = 2;
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+  x1 = Math.min(c.width - 1, x1 + pad); y1 = Math.min(c.height - 1, y1 + pad);
+
+  const out = document.createElement('canvas');
+  out.width = x1 - x0 + 1;
+  out.height = y1 - y0 + 1;
+  out.getContext('2d').drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+  return out;
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function loadArtFolder() {
+  for (const slot of SLOTS) {
+    art[slot.key] = emojiCanvas(slot.emoji);
+    try {
+      art[slot.key] = cutout(await loadImage(slot.file));
+      slot.hasPhoto = true;
+    } catch (e) { /* no drawing saved for this slot yet */ }
+  }
+}
+
+function drawArt(c, cx, cy, height, rot) {
+  const w = (c.width / c.height) * height;
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (rot) ctx.rotate(rot);
+  ctx.drawImage(c, -w / 2, -height / 2, w, height);
+  ctx.restore();
+}
+
+// --- sound ------------------------------------------------------------------
+
+let actx = null;
+const NOTES = [523, 587, 659, 784, 880, 1047, 1175];
+
+function beep(freq, dur = 0.14, type = 'sine', vol = 0.16, delay = 0) {
+  if (!actx) return;
+  const t = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t);
+  o.stop(t + dur + 0.03);
+}
+
+// --- game state -------------------------------------------------------------
+
+const game = {
+  running: false,
+  score: 0,
+  combo: 0,
+  level: 1,
+  catcherX: 0.5,      // 0..1 across the screen
+  targetX: 0.5,
+  items: [],
+  bits: [],
+  clouds: [],
+  spawnIn: 0.6,
+};
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+function makeClouds() {
+  game.clouds = [];
+  for (let i = 0; i < 5; i++) {
+    game.clouds.push({
+      x: Math.random(),
+      y: 0.08 + Math.random() * 0.35,
+      s: 0.6 + Math.random() * 0.8,
+      v: 0.008 + Math.random() * 0.016,
+    });
+  }
+}
+
+const catcherHeight = () => Math.min(H * 0.2, W * 0.32);
+const catcherY = () => H - catcherHeight() * 0.55 - H * 0.04;
+const itemHeight = () => Math.min(H * 0.11, W * 0.2);
+
+function spawn() {
+  const keys = fallingKeys();
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  const size = itemHeight() * (0.85 + Math.random() * 0.35);
+  game.items.push({
+    key, size,
+    x: size * 0.6 + Math.random() * (W - size * 1.2),
+    y: -size,
+    vy: (H + size) / (3.4 - Math.min(2.0, (game.level - 1) * 0.22)),
+    rot: (Math.random() - 0.5) * 0.5,
+    spin: (Math.random() - 0.5) * 1.2,
+    sway: Math.random() * Math.PI * 2,
+  });
+}
+
+function burst(x, y) {
+  for (let i = 0; i < 14; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 120 + Math.random() * 260;
+    game.bits.push({
+      x, y,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp - 120,
+      r: 4 + Math.random() * 7,
+      life: 0.6 + Math.random() * 0.4,
+      age: 0,
+      color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)],
+    });
+  }
+}
+
+function showBanner(text) {
+  const el = document.getElementById('banner');
+  el.querySelector('span').textContent = text;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function catchItem(item) {
+  game.score++;
+  game.combo++;
+  burst(item.x, item.y);
+  beep(NOTES[Math.min(game.combo - 1, NOTES.length - 1)], 0.16, 'triangle', 0.18);
+  document.getElementById('score').textContent = game.score;
+
+  if (game.score % 10 === 0) {
+    game.level++;
+    document.getElementById('level').textContent = 'Level ' + game.level;
+    showBanner('Level ' + game.level + '!');
+    [0, 0.09, 0.18, 0.27].forEach((d, i) => beep(NOTES[i + 2], 0.2, 'triangle', 0.16, d));
+  } else if (game.combo === 5) {
+    showBanner('Nice one, Rain!');
+  } else if (game.combo === 15) {
+    showBanner('Wow!');
+  }
+}
+
+function update(dt) {
+  for (const c of game.clouds) {
+    c.x += c.v * dt;
+    if (c.x > 1.25) c.x = -0.25;
+  }
+
+  const ease = 1 - Math.pow(0.0006, dt);
+  game.catcherX += (game.targetX - game.catcherX) * ease;
+
+  game.spawnIn -= dt;
+  if (game.spawnIn <= 0) {
+    spawn();
+    game.spawnIn = Math.max(0.42, 1.1 - game.level * 0.07);
+  }
+
+  const cx = game.catcherX * W;
+  const ch = catcherHeight();
+  const cw = (art.catcher.width / art.catcher.height) * ch;
+  const mouthTop = catcherY() - ch * 0.5;
+
+  for (let i = game.items.length - 1; i >= 0; i--) {
+    const it = game.items[i];
+    it.y += it.vy * dt;
+    it.sway += dt * 2;
+    it.rot += it.spin * dt;
+
+    const bottom = it.y + it.size * 0.35;
+    if (bottom > mouthTop && bottom < mouthTop + ch * 0.7 &&
+        Math.abs(it.x - cx) < cw * 0.45 + it.size * 0.3) {
+      game.items.splice(i, 1);
+      catchItem(it);
+    } else if (it.y - it.size > H) {
+      game.items.splice(i, 1);
+      game.combo = 0;
+    }
+  }
+
+  for (let i = game.bits.length - 1; i >= 0; i--) {
+    const b = game.bits[i];
+    b.age += dt;
+    if (b.age > b.life) { game.bits.splice(i, 1); continue; }
+    b.vy += 900 * dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+  }
+}
+
+function render() {
+  const sky = SKIES[(game.level - 1) % SKIES.length];
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, sky[0]);
+  grad.addColorStop(1, sky[1]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  for (const c of game.clouds) {
+    const x = c.x * W, y = c.y * H, r = 34 * c.s;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 7);
+    ctx.arc(x + r * 0.9, y + r * 0.15, r * 0.75, 0, 7);
+    ctx.arc(x - r * 0.9, y + r * 0.2, r * 0.65, 0, 7);
+    ctx.fill();
+  }
+
+  const groundH = H * 0.06;
+  ctx.fillStyle = '#7ed07a';
+  ctx.fillRect(0, H - groundH, W, groundH);
+  ctx.fillStyle = '#6bc267';
+  ctx.fillRect(0, H - groundH, W, groundH * 0.25);
+
+  for (const it of game.items) {
+    drawArt(art[it.key], it.x + Math.sin(it.sway) * 6, it.y, it.size, it.rot);
+  }
+
+  const ch = catcherHeight();
+  const bob = Math.sin(Date.now() / 420) * ch * 0.04;
+  drawArt(art.catcher, game.catcherX * W, catcherY() + bob, ch, Math.sin(Date.now() / 700) * 0.05);
+
+  for (const b of game.bits) {
+    ctx.globalAlpha = Math.max(0, 1 - b.age / b.life);
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, 7);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+let last = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000 || 0);
+  last = now;
+  if (game.running) update(dt);
+  render();
+}
+
+// --- input ------------------------------------------------------------------
+
+function aim(clientX) { game.targetX = Math.max(0.04, Math.min(0.96, clientX / W)); }
+
+canvas.addEventListener('pointerdown', e => { aim(e.clientX); canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => aim(e.clientX));
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft')  game.targetX = Math.max(0.04, game.targetX - 0.09);
+  if (e.key === 'ArrowRight') game.targetX = Math.min(0.96, game.targetX + 0.09);
+});
+
+// --- art panel --------------------------------------------------------------
+
+const slotsEl = document.getElementById('slots');
+
+function buildSlots() {
+  slotsEl.innerHTML = '';
+  for (const slot of SLOTS) {
+    const tile = document.createElement('label');
+    tile.className = 'slot' + (slot.hasPhoto ? ' filled' : '');
+
+    const preview = document.createElement('canvas');
+    preview.width = preview.height = 144;
+    const pg = preview.getContext('2d');
+    const src = art[slot.key];
+    const s = Math.min(144 / src.width, 144 / src.height);
+    pg.drawImage(src, (144 - src.width * s) / 2, (144 - src.height * s) / 2, src.width * s, src.height * s);
+
+    const name = document.createElement('b');
+    name.textContent = slot.label;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.hidden = true;
+    input.addEventListener('change', () => { if (input.files[0]) useFile(slot, input.files[0]); });
+
+    tile.append(preview, name, input);
+
+    tile.addEventListener('dragover', e => { e.preventDefault(); tile.classList.add('over'); });
+    tile.addEventListener('dragleave', () => tile.classList.remove('over'));
+    tile.addEventListener('drop', e => {
+      e.preventDefault();
+      tile.classList.remove('over');
+      if (e.dataTransfer.files[0]) useFile(slot, e.dataTransfer.files[0]);
+    });
+
+    slotsEl.append(tile);
+  }
+}
+
+function useFile(slot, file) {
+  const reader = new FileReader();
+  reader.onload = async () => {
+    art[slot.key] = cutout(await loadImage(reader.result));
+    slot.hasPhoto = true;
+    buildSlots();
+    beep(880, 0.12, 'triangle', 0.14);
+  };
+  reader.readAsDataURL(file);
+}
+
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+// --- wiring -----------------------------------------------------------------
+
+const startSheet = document.getElementById('startSheet');
+const artSheet = document.getElementById('artSheet');
+
+function unlockAudio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  unlockAudio();
+  startSheet.hidden = true;
+  game.running = true;
+  showBanner('Go!');
+});
+
+document.getElementById('artBtn').addEventListener('click', () => {
+  unlockAudio();
+  buildSlots();
+  artSheet.hidden = false;
+});
+
+document.getElementById('artDone').addEventListener('click', () => { artSheet.hidden = true; });
+
+document.getElementById('artReset').addEventListener('click', () => {
+  for (const slot of SLOTS) { art[slot.key] = emojiCanvas(slot.emoji); slot.hasPhoto = false; }
+  buildSlots();
+});
+
+(async function boot() {
+  resize();
+  makeClouds();
+  await loadArtFolder();
+  game.targetX = game.catcherX = 0.5;
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
