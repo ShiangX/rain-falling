@@ -18,8 +18,10 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.18); pointer-events: none;
   }
+  .scores { display: flex; gap: 26px; }
   .score { font-size: 42px; font-weight: 800; line-height: 1; }
-  .score small { display: block; font-size: 15px; font-weight: 700; opacity: .85; letter-spacing: .08em; }
+  .score small { display: block; font-size: 15px; font-weight: 700; opacity: .9; letter-spacing: .06em; }
+  .score small i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
   .hud .right { display: flex; gap: 10px; align-items: center; pointer-events: auto; }
   .pill {
     font: inherit; font-size: 18px; font-weight: 800; border: 0; cursor: pointer;
@@ -62,15 +64,16 @@
   button.ghost { background: #eef3f7; color: #47657c; box-shadow: 0 5px 0 #d5e0e9; font-size: 17px; padding: 12px 22px; }
   button.ghost:active { box-shadow: 0 2px 0 #d5e0e9; }
 
-  .picks { margin: 4px 0 20px; color: #7b93a5; font-size: 15px; }
+  .picks { margin: 4px 0 6px; color: #7b93a5; font-size: 15px; }
   .picks b { color: #1d5f8a; }
+  .keys { margin: 0 0 18px; color: #9db0bf; font-size: 14px; }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 14px; margin: 6px 0 22px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin: 6px 0 18px; }
   .tile {
     border: 3px solid #e4ecf2; background: #f7fafc; border-radius: 22px; padding: 12px 8px;
     cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;
   }
-  .tile canvas { width: 92px; height: 92px; }
+  .tile canvas { width: 84px; height: 84px; }
   .tile b { font-size: 15px; color: #5b7285; }
   .tile.on { border-color: #ffb300; background: #fff8e8; }
   .tile.on::after {
@@ -79,6 +82,13 @@
     font-size: 17px; font-weight: 900; display: grid; place-items: center;
   }
   .tile.over { border-color: #4fb3f0; background: #eaf6ff; }
+
+  .rowhead {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    font-size: 17px; font-weight: 800; color: #47657c; margin-top: 6px;
+  }
+  .rowhead .dot { width: 16px; height: 16px; border-radius: 50%; }
+  .rowhead .keycap { font-size: 14px; font-weight: 700; color: #9db0bf; }
   .hint { font-size: 14px; color: #93a8b8; margin-top: 4px; }
 </style>
 </head>
@@ -87,7 +97,7 @@
 <canvas id="game"></canvas>
 
 <div class="hud">
-  <div class="score"><span id="score">0</span><small id="scoreLabel">CAUGHT</small></div>
+  <div class="scores" id="scores"></div>
   <div class="right">
     <span class="pill" id="level">Level 1</span>
     <button class="pill" id="btnHome">Menu</button>
@@ -105,7 +115,9 @@
       <button class="blue" id="btnDodge">Dodge</button>
     </div>
     <div class="picks" id="picks"></div>
+    <div class="keys" id="keys"></div>
     <div class="row">
+      <button class="ghost" id="btnCount">1 player</button>
       <button class="ghost" id="btnPlayer">Who plays</button>
       <button class="ghost" id="btnFalling">What falls</button>
     </div>
@@ -115,8 +127,8 @@
 <div class="sheet" id="playerSheet" hidden>
   <div class="card">
     <h1>Who plays</h1>
-    <p>Tap the one you want to be.</p>
-    <div class="tiles" id="playerTiles"></div>
+    <p id="playerBlurb">Tap the one you want to be.</p>
+    <div id="playerRows"></div>
     <div class="row"><button id="playerDone">Done</button></div>
     <div class="hint">Drop a photo of a new drawing on any square to swap its picture.</div>
   </div>
@@ -136,9 +148,12 @@
 // ---------------------------------------------------------------------------
 // Rain Falling. One file, no build step, no libraries.
 //
-// Every drawing sits in one library and can take either job: the one you play
+// Every drawing sits in one library and can take either job: someone to play
 // as, or one of the things falling from the sky. Nothing is a "player drawing"
-// or a "falling drawing" by nature, the two pick screens decide.
+// or a "falling drawing" by nature, the pick screens decide.
+//
+// One or two players. Player 1 uses the arrow keys or a finger, player 2 uses
+// A and S.
 // ---------------------------------------------------------------------------
 
 const ART = [
@@ -155,28 +170,36 @@ const SKIES = [
   ['#a8e6cf', '#e4fff4'], ['#ffc6d9', '#ffeaf2'],
 ];
 const CONFETTI = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#ff8fd1', '#ffa45c'];
-const SPIN_TIME = 0.85;   // how long the player tumbles after a hit
+const SEATS = [
+  { tag: '1', color: '#ffd43b', keys: 'arrow keys or a finger' },
+  { tag: '2', color: '#ff8fd1', keys: 'A and S' },
+];
+const SPIN_TIME = 0.85;   // how long a player tumbles after a hit
 const SAFE_TIME = 1.5;    // can't be hit again until this runs out
+const KEY_SPEED = 1.0;    // screens per second while a key is held
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0;
 
-// --- what the player has chosen ---------------------------------------------
+// --- what has been chosen ---------------------------------------------------
 
-const prefs = { player: 'cat', falling: ['fish', 'cocoa'] };
+const prefs = { count: 1, picks: ['cat', 'jet'], falling: ['fish', 'cocoa'] };
 
 function savePrefs() {
   try { localStorage.setItem('rain-falling', JSON.stringify(prefs)); } catch (e) { /* file:// */ }
 }
 function loadPrefs() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('rain-falling') || 'null');
-    if (!saved) return;
-    if (BY_KEY[saved.player]) prefs.player = saved.player;
-    const kept = (saved.falling || []).filter(k => BY_KEY[k]);
-    if (kept.length) prefs.falling = kept;
-  } catch (e) { /* nothing saved yet */ }
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('rain-falling') || 'null'); } catch (e) { return; }
+  if (!saved) return;
+  if (saved.count === 2) prefs.count = 2;
+  // saved.player is what the one-player version wrote before seats existed
+  const picks = Array.isArray(saved.picks) ? saved.picks : [saved.player];
+  picks.forEach((k, i) => { if (i < 2 && BY_KEY[k]) prefs.picks[i] = k; });
+  if (prefs.picks[0] === prefs.picks[1]) prefs.picks[1] = ART.find(a => a.key !== prefs.picks[0]).key;
+  const kept = (saved.falling || []).filter(k => BY_KEY[k]);
+  if (kept.length) prefs.falling = kept;
 }
 
 // --- art loading ------------------------------------------------------------
@@ -334,9 +357,8 @@ function unlockAudio() {
 const game = {
   mode: 'catch',
   running: false,
-  score: 0, combo: 0, level: 1, time: 0,
-  x: 0.5, targetX: 0.5,
-  spin: 0, safe: 0,
+  level: 1, time: 0, caught: 0,
+  players: [],
   items: [], bits: [], clouds: [],
   spawnIn: 0.6,
 };
@@ -361,10 +383,12 @@ function makeClouds() {
   }
 }
 
-const playerArt = () => pic[prefs.player] || pic[ART[0].key];
-const playerHeight = () => Math.min(H * 0.2, W * 0.32) * (BY_KEY[prefs.player].playScale || 1);
-const playerY = () => H - Math.min(H * 0.2, W * 0.32) * 0.55 - H * 0.04;
+const artOf = key => pic[key] || pic[ART[0].key];
+const baseHeight = () => Math.min(H * 0.2, W * 0.32);
+const heightOf = key => baseHeight() * (BY_KEY[key].playScale || 1);
+const playerY = () => H - baseHeight() * 0.55 - H * 0.04;
 const itemHeight = () => Math.min(H * 0.11, W * 0.2);
+const clampX = x => Math.max(0.04, Math.min(0.96, x));
 
 function spawn() {
   const key = prefs.falling[Math.floor(Math.random() * prefs.falling.length)];
@@ -400,9 +424,36 @@ function showBanner(text) {
   el.classList.add('show');
 }
 
+function buildScores() {
+  const host = document.getElementById('scores');
+  host.innerHTML = '';
+  game.players.forEach(() => {
+    const d = document.createElement('div');
+    d.className = 'score';
+    d.innerHTML = '<span></span><small></small>';
+    host.append(d);
+  });
+  showScore();
+}
+
+const scoreOf = p => game.mode === 'dodge' ? Math.floor(p.clean) : p.score;
+
 function showScore() {
-  document.getElementById('score').textContent =
-    game.mode === 'dodge' ? Math.floor(game.time) : game.score;
+  const host = document.getElementById('scores');
+  game.players.forEach((p, i) => {
+    const d = host.children[i];
+    if (!d) return;
+    d.querySelector('span').textContent = scoreOf(p);
+    // the seat colour goes on a dot, not the text: yellow lettering on a pale
+    // sky is unreadable
+    const small = d.querySelector('small');
+    if (game.players.length > 1) {
+      small.innerHTML = '<i style="background:' + SEATS[i].color + '"></i>P' + SEATS[i].tag +
+                        ' ' + BY_KEY[p.key].name.toUpperCase();
+    } else {
+      small.textContent = game.mode === 'dodge' ? 'SECONDS' : 'CAUGHT';
+    }
+  });
 }
 
 function levelUp() {
@@ -412,27 +463,31 @@ function levelUp() {
   [0, 0.09, 0.18, 0.27].forEach((d, i) => beep(NOTES[i + 2], 0.2, 'triangle', 0.16, d));
 }
 
-function catchItem(it) {
-  game.score++;
-  game.combo++;
+function catchItem(p, it) {
+  p.score++;
+  p.combo++;
+  game.caught++;
   burst(it.x, it.y);
-  beep(NOTES[Math.min(game.combo - 1, NOTES.length - 1)], 0.16, 'triangle', 0.18);
+  beep(NOTES[Math.min(p.combo - 1, NOTES.length - 1)], 0.16, 'triangle', 0.18);
   showScore();
-  if (game.score % 10 === 0) levelUp();
-  else if (game.combo === 5) showBanner('Nice one, Rain!');
-  else if (game.combo === 15) showBanner('Wow!');
+  if (game.caught % 10 === 0) levelUp();
+  else if (game.players.length === 1 && p.combo === 5) showBanner('Nice one, Rain!');
+  else if (game.players.length === 1 && p.combo === 15) showBanner('Wow!');
 }
 
-// Dodge mode: a hit costs no lives, it just sends the player tumbling and
-// makes them safe for a moment so one collision can't turn into five.
-function hitItem(it) {
-  game.spin = SPIN_TIME;
-  game.safe = SAFE_TIME;
-  game.combo = 0;
+// Dodge: a hit costs no lives, it sends that player tumbling and makes them
+// safe for a moment so one collision can't turn into five.
+function hitItem(p, it) {
+  p.spin = SPIN_TIME;
+  p.safe = SAFE_TIME;
+  p.combo = 0;
   burst(it.x, it.y);
   [440, 340, 260].forEach((f, i) => beep(f, 0.18, 'square', 0.13, i * 0.07));
-  showBanner('Whoa!');
+  showBanner(game.players.length > 1 ? 'Player ' + SEATS[game.players.indexOf(p)].tag + '!' : 'Whoa!');
 }
+
+const held = new Set();
+const KEY_MAP = { arrowleft: [0, -1], arrowright: [0, 1], a: [1, -1], s: [1, 1] };
 
 function update(dt) {
   game.time += dt;
@@ -442,16 +497,24 @@ function update(dt) {
     if (c.x > 1.25) c.x = -0.25;
   }
 
-  game.spin = Math.max(0, game.spin - dt);
-  game.safe = Math.max(0, game.safe - dt);
+  for (const k of held) {
+    const [seat, dir] = KEY_MAP[k];
+    const p = game.players[seat];
+    if (p) p.targetX = clampX(p.targetX + dir * KEY_SPEED * dt);
+  }
 
   const ease = 1 - Math.pow(0.0006, dt);
-  game.x += (game.targetX - game.x) * ease;
+  for (const p of game.players) {
+    p.spin = Math.max(0, p.spin - dt);
+    p.safe = Math.max(0, p.safe - dt);
+    p.x += (p.targetX - p.x) * ease;
+    // in dodge you score for every second you are flying clean, so the better
+    // dodger wins rather than whoever simply stayed on screen longest
+    if (game.mode === 'dodge' && p.spin <= 0) p.clean += dt;
+  }
 
   if (game.mode === 'dodge') {
     showScore();
-    // dodging ramps slower than catching: you have to avoid everything at once,
-    // where catching only asks you to reach one thing
     const earned = 1 + Math.floor(game.time / 15);
     if (earned > game.level) levelUp();
   }
@@ -464,37 +527,43 @@ function update(dt) {
       : Math.max(0.42, 1.1 - game.level * 0.07);
   }
 
-  const px = game.x * W;
-  const ph = playerHeight();
-  const pw = (playerArt().width / playerArt().height) * ph;
-  const top = playerY() - ph * 0.5;
-
   for (let i = game.items.length - 1; i >= 0; i--) {
     const it = game.items[i];
     it.y += it.vy * dt;
     it.sway += dt * 2;
     it.rot += it.spin * dt;
 
-    if (game.mode === 'catch') {
-      const bottom = it.y + it.size * 0.35;
-      if (bottom > top && bottom < top + ph * 0.7 && Math.abs(it.x - px) < pw * 0.45 + it.size * 0.3) {
-        game.items.splice(i, 1);
-        catchItem(it);
-        continue;
+    // when both players are on the same drawing it goes to whoever is closer,
+    // not to whoever the loop happens to reach first
+    let taker = null, takerGap = Infinity;
+    for (const p of game.players) {
+      const px = p.x * W;
+      const ph = heightOf(p.key);
+      const pw = (artOf(p.key).width / artOf(p.key).height) * ph;
+      const pTop = playerY() - ph * 0.5;
+      const gap = Math.abs(it.x - px);
+      let touching;
+
+      if (game.mode === 'catch') {
+        const bottom = it.y + it.size * 0.35;
+        touching = bottom > pTop && bottom < pTop + ph * 0.7 && gap < pw * 0.45 + it.size * 0.3;
+      } else {
+        // a tighter box than catching uses: being clipped by a wingtip you can
+        // barely see is the kind of unfair that makes a 7-year-old quit
+        touching = p.safe <= 0 && it.y > pTop + ph * 0.12 && it.y < pTop + ph * 0.88 &&
+                   gap < pw * 0.3 + it.size * 0.25;
       }
-    } else if (game.safe <= 0) {
-      // a tighter box than catching uses: being clipped by a wingtip you can
-      // barely see is the kind of unfair that makes a 7-year-old quit
-      if (it.y > top + ph * 0.12 && it.y < top + ph * 0.88 && Math.abs(it.x - px) < pw * 0.3 + it.size * 0.25) {
-        game.items.splice(i, 1);
-        hitItem(it);
-        continue;
-      }
+      if (touching && gap < takerGap) { takerGap = gap; taker = p; }
     }
 
-    if (it.y - it.size > H) {
+    if (taker) {
+      if (game.mode === 'catch') catchItem(taker, it);
+      else hitItem(taker, it);
+    }
+
+    if (taker || it.y - it.size > H) {
       game.items.splice(i, 1);
-      if (game.mode === 'catch') game.combo = 0;
+      if (!taker && game.mode === 'catch') game.players.forEach(p => { p.combo = 0; });
     }
   }
 
@@ -536,15 +605,32 @@ function render() {
     drawArt(pic[it.key], it.x + Math.sin(it.sway) * 6, it.y, it.size, it.rot);
   }
 
-  const ph = playerHeight();
-  const spinning = game.spin > 0;
-  const rot = spinning
-    ? (1 - game.spin / SPIN_TIME) * Math.PI * 2
-    : Math.sin(Date.now() / 700) * 0.05;
-  const bob = spinning ? 0 : Math.sin(Date.now() / 420) * ph * 0.04;
-  if (game.safe > 0 && !spinning) ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 70));
-  drawArt(playerArt(), game.x * W, playerY() + bob, ph, rot);
-  ctx.globalAlpha = 1;
+  game.players.forEach((p, i) => {
+    const ph = heightOf(p.key);
+    const px = p.x * W;
+    const spinning = p.spin > 0;
+    const rot = spinning
+      ? (1 - p.spin / SPIN_TIME) * Math.PI * 2
+      : Math.sin(Date.now() / 700 + i) * 0.05;
+    const bob = spinning ? 0 : Math.sin(Date.now() / 420 + i) * ph * 0.04;
+    if (p.safe > 0 && !spinning) ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 70));
+    drawArt(artOf(p.key), px, playerY() + bob, ph, rot);
+    ctx.globalAlpha = 1;
+
+    if (game.players.length > 1) {
+      const r = Math.max(13, ph * 0.1);
+      const by = playerY() - ph * 0.5 - r * 1.15;
+      ctx.fillStyle = SEATS[i].color;
+      ctx.beginPath();
+      ctx.arc(px, by, r, 0, 7);
+      ctx.fill();
+      ctx.fillStyle = '#4a2c00';
+      ctx.font = '800 ' + Math.round(r * 1.35) + 'px ui-rounded, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(SEATS[i].tag, px, by + 1);
+    }
+  });
 
   for (const b of game.bits) {
     ctx.globalAlpha = Math.max(0, 1 - b.age / b.life);
@@ -567,14 +653,21 @@ function frame(now) {
 
 // --- input ------------------------------------------------------------------
 
-function aim(clientX) { game.targetX = Math.max(0.04, Math.min(0.96, clientX / W)); }
+function aim(clientX) {
+  const p = game.players[0];
+  if (p) p.targetX = clampX(clientX / W);
+}
 
 canvas.addEventListener('pointerdown', e => { aim(e.clientX); canvas.setPointerCapture(e.pointerId); });
 canvas.addEventListener('pointermove', e => aim(e.clientX));
 window.addEventListener('keydown', e => {
-  if (e.key === 'ArrowLeft')  game.targetX = Math.max(0.04, game.targetX - 0.09);
-  if (e.key === 'ArrowRight') game.targetX = Math.min(0.96, game.targetX + 0.09);
+  const k = e.key.toLowerCase();
+  if (!KEY_MAP[k]) return;
+  held.add(k);
+  e.preventDefault();
 });
+window.addEventListener('keyup', e => held.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => held.clear());
 
 // --- screens ----------------------------------------------------------------
 
@@ -584,8 +677,14 @@ const fallingSheet = document.getElementById('fallingSheet');
 
 function showPicks() {
   const falling = prefs.falling.map(k => BY_KEY[k].name).join(', ');
-  document.getElementById('picks').innerHTML =
-    'Playing as <b>' + BY_KEY[prefs.player].name + '</b> · falling: <b>' + falling + '</b>';
+  const who = prefs.count > 1
+    ? '<b>' + BY_KEY[prefs.picks[0]].name + '</b> vs <b>' + BY_KEY[prefs.picks[1]].name + '</b>'
+    : 'Playing as <b>' + BY_KEY[prefs.picks[0]].name + '</b>';
+  document.getElementById('picks').innerHTML = who + ' · falling: <b>' + falling + '</b>';
+  document.getElementById('keys').textContent = prefs.count > 1
+    ? 'Player 1: arrow keys · Player 2: A and S'
+    : 'Arrow keys, or drag with a finger';
+  document.getElementById('btnCount').textContent = prefs.count > 1 ? '2 players' : '1 player';
 }
 
 function tiles(host, isOn, tap) {
@@ -595,11 +694,11 @@ function tiles(host, isOn, tap) {
     tile.className = 'tile' + (isOn(a) ? ' on' : '');
 
     const c = document.createElement('canvas');
-    c.width = c.height = 184;
+    c.width = c.height = 168;
     const g = c.getContext('2d');
     const src = pic[a.key];
-    const s = Math.min(184 / src.width, 184 / src.height);
-    g.drawImage(src, (184 - src.width * s) / 2, (184 - src.height * s) / 2, src.width * s, src.height * s);
+    const s = Math.min(168 / src.width, 168 / src.height);
+    g.drawImage(src, (168 - src.width * s) / 2, (168 - src.height * s) / 2, src.width * s, src.height * s);
 
     const name = document.createElement('b');
     name.textContent = a.name;
@@ -618,10 +717,38 @@ function tiles(host, isOn, tap) {
   }
 }
 
+// Two seats can never hold the same drawing: you would not be able to tell
+// which one is yours. Taking the other seat's pick swaps them.
+function pickFor(seat, key) {
+  const other = 1 - seat;
+  if (prefs.count > 1 && prefs.picks[other] === key) prefs.picks[other] = prefs.picks[seat];
+  prefs.picks[seat] = key;
+  savePrefs();
+  drawPlayerTiles();
+  beep(880, 0.12, 'triangle', 0.14);
+}
+
 function drawPlayerTiles() {
-  tiles(document.getElementById('playerTiles'),
-        a => a.key === prefs.player,
-        a => { prefs.player = a.key; savePrefs(); drawPlayerTiles(); beep(880, 0.12, 'triangle', 0.14); });
+  const host = document.getElementById('playerRows');
+  host.innerHTML = '';
+  document.getElementById('playerBlurb').textContent = prefs.count > 1
+    ? 'Tap a drawing for each player.'
+    : 'Tap the one you want to be.';
+  for (let seat = 0; seat < prefs.count; seat++) {
+    if (prefs.count > 1) {
+      const head = document.createElement('div');
+      head.className = 'rowhead';
+      head.innerHTML = '<span class="dot" style="background:' + SEATS[seat].color + '"></span>' +
+                       'Player ' + SEATS[seat].tag +
+                       '<span class="keycap">' + SEATS[seat].keys + '</span>';
+      host.append(head);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'tiles';
+    const s = seat;
+    tiles(grid, a => a.key === prefs.picks[s], a => pickFor(s, a.key));
+    host.append(grid);
+  }
 }
 
 function drawFallingTiles() {
@@ -656,6 +783,7 @@ function goHome() {
   game.running = false;
   game.items.length = 0;
   game.bits.length = 0;
+  held.clear();
   showPicks();
   playerSheet.hidden = true;
   fallingSheet.hidden = true;
@@ -665,14 +793,22 @@ function goHome() {
 function start(mode) {
   unlockAudio();
   game.mode = mode;
-  game.score = 0; game.combo = 0; game.level = 1; game.time = 0;
-  game.spin = 0; game.safe = 0;
-  game.items.length = 0; game.bits.length = 0;
+  game.level = 1;
+  game.time = 0;
+  game.caught = 0;
+  game.items.length = 0;
+  game.bits.length = 0;
   game.spawnIn = 0.6;
-  game.x = game.targetX = 0.5;
+  held.clear();
+
+  const spots = prefs.count > 1 ? [0.3, 0.7] : [0.5];
+  game.players = spots.map((at, i) => ({
+    key: prefs.picks[i], x: at, targetX: at,
+    score: 0, combo: 0, clean: 0, spin: 0, safe: 0,
+  }));
+
   document.getElementById('level').textContent = 'Level 1';
-  document.getElementById('scoreLabel').textContent = mode === 'dodge' ? 'SECONDS' : 'CAUGHT';
-  showScore();
+  buildScores();
   homeSheet.hidden = true;
   game.running = true;
   showBanner(mode === 'dodge' ? 'Dodge!' : 'Go!');
@@ -681,6 +817,14 @@ function start(mode) {
 document.getElementById('btnCatch').addEventListener('click', () => start('catch'));
 document.getElementById('btnDodge').addEventListener('click', () => start('dodge'));
 document.getElementById('btnHome').addEventListener('click', goHome);
+document.getElementById('btnCount').addEventListener('click', () => {
+  unlockAudio();
+  prefs.count = prefs.count > 1 ? 1 : 2;
+  if (prefs.picks[0] === prefs.picks[1]) prefs.picks[1] = ART.find(a => a.key !== prefs.picks[0]).key;
+  savePrefs();
+  showPicks();
+  beep(prefs.count > 1 ? 880 : 620, 0.12, 'triangle', 0.14);
+});
 
 document.getElementById('btnPlayer').addEventListener('click', () => {
   unlockAudio();
@@ -703,7 +847,6 @@ document.getElementById('fallingDone').addEventListener('click', goHome);
   loadPrefs();
   await loadArt();
   showPicks();
-  game.x = game.targetX = 0.5;
   requestAnimationFrame(frame);
 })();
 </script>

@@ -13,14 +13,32 @@ no install, no internet needed.
 lasted. Getting hit sends you tumbling through a full spin and makes you safe
 for a moment. It costs no lives, because the spin is the fun part.
 
-Move with your finger or the mouse. Neither game can be lost.
+Neither game can be lost.
+
+## One player or two
+
+The home screen toggles between them.
+
+    Player 1    arrow keys, or drag with a finger
+    Player 2    A and S
+
+In two-player games each seat picks its own drawing and keeps its own score,
+shown with a numbered badge over the character and a matching dot in the
+corner. The two seats can never hold the same drawing, because you would not be
+able to tell which one is yours; taking the other seat's pick swaps them.
+
+A falling drawing that both players are touching goes to whichever one is
+closer, not to whoever the code happens to check first.
+
+In Dodge each player scores a point for every second they are flying clean, so
+the better dodger wins rather than whoever simply stayed on screen longest.
 
 ## The drawings
 
 Every drawing sits in one library and can take either job. Nothing is a player
 by nature and nothing is a falling thing by nature, the two pick screens decide:
 
-- **Who plays** — pick one to be.
+- **Who plays** — pick one to be, or one per seat in a two-player game.
 - **What falls** — tick as many as you want dropping out of the sky.
 
 Choices are remembered between visits. Current library:
@@ -75,8 +93,11 @@ Everything is in `index.html`:
   against the others; a busy drawing with writing in it needs more room than a
   bold simple shape. Cocoa falls at 1.7.
 - `SKIES` — the sky gradient per level.
+- `SEATS` — the two seats: badge, colour, and which keys they answer to.
+- `KEY_MAP` — which key moves which seat.
 - `SPIN_TIME` and `SAFE_TIME` — how long the tumble lasts, and how long you
-  can't be hit again after one.
+  can't be hit again after one. `KEY_SPEED` is screens per second while a key
+  is held.
 - `spawn()` — fall speed. `3.4 - (level-1)*0.22` is seconds from top to bottom.
 - `update()` — the gap between drops, and how fast each mode levels up. Dodge
   ramps slower than catch on purpose.
