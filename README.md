@@ -1,71 +1,83 @@
 # Rain Falling
 
-A catching game for Rain, starring her drawings. One HTML file, no install,
-no internet needed.
+A drawing game for Rain. Everything you see on screen, she drew. One HTML file,
+no install, no internet needed.
 
 **Play it: https://shiangx.github.io/rain-falling/**
 
-## Play it
+## The two games
 
-Open the link above on any phone, tablet or laptop, or double-click
-`index.html` to run it offline. Press Play. Move the winged cat with your finger
-or the mouse and catch the fish. There is no way to lose. Every 10 catches bumps
-the level: fish fall faster and the sky changes color.
+**Catch** — things fall, you catch them. Score is how many you caught.
 
-## The art
+**Dodge** — things fall, you get out of the way. Score is how many seconds you
+lasted. Getting hit sends you tumbling through a full spin and makes you safe
+for a moment. It costs no lives, because the spin is the fun part.
 
-Rain drew both of them. The originals are in `art/source/`, the cut-out sprites
-the game loads are:
+Move with your finger or the mouse. Neither game can be lost.
 
-    art/rain.png      the winged cat, the player
-    art/item-1.png    the fish in the party hat
-    art/item-2.png    the Free Hot Coco For All sign
+## The drawings
 
-Slots `item-3.png` through `item-5.png` are empty. Only slots that have a real
-drawing ever fall, so nothing lands that she didn't draw.
+Every drawing sits in one library and can take either job. Nothing is a player
+by nature and nothing is a falling thing by nature, the two pick screens decide:
 
-A drawing packed with detail gets lost at fish size, so `SLOTS` carries a
-`scale` per drawing. The cocoa sign runs at 1.7 to keep its writing readable.
+- **Who plays** — pick one to be.
+- **What falls** — tick as many as you want dropping out of the sky.
+
+Choices are remembered between visits. Current library:
+
+    art/cat.png       the winged cat
+    art/fish.png      the fish in the party hat
+    art/cocoa.png     the Free Hot Coco For All sign
+    art/jet.png       the jet
+
+Originals are in `art/source/`.
 
 ## Adding a drawing
 
-Fastest way, no tools: press **Use our drawings** on the start screen and drop a
-photo onto a square. The paper gets cut away on the spot. That lasts until the
-page reloads, which is fine for showing her.
+Fastest way, no tools: open **Who plays** or **What falls** and drop a photo
+onto any square. That drawing's picture is replaced on the spot, the paper gets
+cut away, and it lasts until the page reloads.
 
-To keep it, cut the sprite properly and save it into `art/`:
+To keep it, add an entry to `ART` in `index.html`, then cut the sprite properly:
 
-    /tmp/rfvenv/bin/python tools/cutout.py art/source/whatever.jpg art/item-2.png \
+    /tmp/rfvenv/bin/python tools/cutout.py art/source/whatever.jpg art/whatever.png \
         --crop 1120 1940 1990 2690
 
 `--crop` is a box in the original photo's pixels, which matters because these
-pages have several drawings on them. To find the numbers, lay a grid over the
+pages usually hold several drawings. To find the numbers, lay a grid over the
 photo and read them off:
 
     /tmp/rfvenv/bin/python tools/grid.py art/source/whatever.jpg /tmp/grid.png
 
 `tools/build-art.sh` re-runs every cutout with the crops already worked out, so
-edit that file rather than retyping the commands.
+edit that file rather than retyping commands.
 
 The cutout keeps the largest connected blob of ink in the crop and drops the
 rest, which is how the pencil oval around the cat and the "Hi" speech bubble
-above the fish got left behind. Two knobs when it goes wrong:
+above the fish got left behind. Three knobs when it goes wrong:
 
 - `--ink` (default 0.20) — lower catches fainter pencil, higher ignores a light
   background scribble. The fish needed 0.15, the cat needed 0.26.
 - `--close` (default 9) — larger bridges bigger gaps in an outline, which keeps
   the inside of the drawing solid instead of see-through.
+- `--erase X0 Y0 X1 Y1` — blank a box before the drawing is picked, for a
+  neighbour sitting too close to crop away. Repeatable.
 
-It needs numpy, Pillow and scipy. They live in a throwaway virtualenv:
+It needs numpy, Pillow and scipy, in a throwaway virtualenv:
 
     python3 -m venv /tmp/rfvenv && /tmp/rfvenv/bin/pip install pillow numpy scipy
 
 ## Changing the game
 
-Everything is in `index.html`. The parts worth touching:
+Everything is in `index.html`:
 
-- `SLOTS` — the art slots and their emoji stand-ins. Add rows for more things to catch.
+- `ART` — the drawing library. `fallScale` and `playScale` size a drawing
+  against the others; a busy drawing with writing in it needs more room than a
+  bold simple shape. Cocoa falls at 1.7.
 - `SKIES` — the sky gradient per level.
+- `SPIN_TIME` and `SAFE_TIME` — how long the tumble lasts, and how long you
+  can't be hit again after one.
 - `spawn()` — fall speed. `3.4 - (level-1)*0.22` is seconds from top to bottom.
-- `update()` — `Math.max(0.42, 1.1 - level*0.07)` is the gap between drops in seconds.
-- `catchItem()` — scoring, the level-up threshold, and the cheer messages.
+- `update()` — the gap between drops, and how fast each mode levels up. Dodge
+  ramps slower than catch on purpose.
+- `catchItem()` and `hitItem()` — scoring, the cheers, and what a hit does.

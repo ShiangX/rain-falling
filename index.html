@@ -11,26 +11,24 @@
     font-family: ui-rounded, "SF Pro Rounded", Nunito, "Avenir Next", system-ui, sans-serif;
     -webkit-user-select: none; user-select: none;
   }
-  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  canvas#game { display: block; width: 100%; height: 100%; touch-action: none; }
 
   .hud {
     position: fixed; top: 0; left: 0; right: 0; padding: 14px 18px;
     display: flex; justify-content: space-between; align-items: flex-start;
-    pointer-events: none; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.18);
+    color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.18); pointer-events: none;
   }
   .score { font-size: 42px; font-weight: 800; line-height: 1; }
   .score small { display: block; font-size: 15px; font-weight: 700; opacity: .85; letter-spacing: .08em; }
-  .level { font-size: 20px; font-weight: 800; background: rgba(255,255,255,.28);
-           padding: 8px 14px; border-radius: 999px; text-shadow: none; }
+  .hud .right { display: flex; gap: 10px; align-items: center; pointer-events: auto; }
+  .pill {
+    font: inherit; font-size: 18px; font-weight: 800; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.3); color: #fff; text-shadow: none;
+    padding: 8px 16px; border-radius: 999px;
+  }
 
-  .banner {
-    position: fixed; inset: 0; display: grid; place-items: center;
-    pointer-events: none; opacity: 0; transform: scale(.7);
-  }
-  .banner span {
-    font-size: 64px; font-weight: 900; color: #fff;
-    text-shadow: 0 6px 0 rgba(0,0,0,.2); padding: 0 24px; text-align: center;
-  }
+  .banner { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; opacity: 0; }
+  .banner span { font-size: 64px; font-weight: 900; color: #fff; text-shadow: 0 6px 0 rgba(0,0,0,.2); text-align: center; padding: 0 24px; }
   .banner.show { animation: pop 1.4s ease-out forwards; }
   @keyframes pop {
     0%   { opacity: 0; transform: scale(.6) rotate(-6deg); }
@@ -41,36 +39,47 @@
   }
 
   .sheet {
-    position: fixed; inset: 0; display: grid; place-items: center;
-    background: rgba(28,60,90,.55); backdrop-filter: blur(6px); padding: 20px;
+    position: fixed; inset: 0; display: grid; place-items: center; padding: 20px;
+    background: rgba(28,60,90,.55); backdrop-filter: blur(6px);
   }
   .sheet[hidden] { display: none; }
   .card {
-    background: #fff; border-radius: 28px; padding: 28px; max-width: 560px; width: 100%;
-    box-shadow: 0 24px 60px rgba(0,0,0,.3); text-align: center;
-    max-height: 90vh; overflow-y: auto;
+    background: #fff; border-radius: 28px; padding: 28px; width: 100%; max-width: 620px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.3); text-align: center; max-height: 92vh; overflow-y: auto;
   }
-  .card h1 { margin: 0 0 4px; font-size: 44px; color: #1d5f8a; letter-spacing: -.02em; }
-  .card p  { margin: 0 0 20px; color: #5b7285; font-size: 17px; line-height: 1.5; }
+  .card h1 { margin: 0 0 6px; font-size: 44px; color: #1d5f8a; letter-spacing: -.02em; }
+  .card p { margin: 0 0 20px; color: #5b7285; font-size: 17px; line-height: 1.5; }
+  .row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 14px; }
+
   button {
-    font: inherit; font-weight: 800; border: 0; cursor: pointer;
-    border-radius: 999px; padding: 16px 32px; font-size: 20px;
-    background: #ffb300; color: #4a2c00; box-shadow: 0 5px 0 #d99500;
+    font: inherit; font-weight: 800; border: 0; cursor: pointer; border-radius: 999px;
+    padding: 16px 34px; font-size: 22px; background: #ffb300; color: #4a2c00; box-shadow: 0 5px 0 #d99500;
   }
   button:active { transform: translateY(3px); box-shadow: 0 2px 0 #d99500; }
-  button.ghost { background: #eef3f7; color: #47657c; box-shadow: 0 5px 0 #d5e0e9; }
-  .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  button.blue { background: #4fb3f0; color: #06324d; box-shadow: 0 5px 0 #2f93d0; }
+  button.blue:active { box-shadow: 0 2px 0 #2f93d0; }
+  button.ghost { background: #eef3f7; color: #47657c; box-shadow: 0 5px 0 #d5e0e9; font-size: 17px; padding: 12px 22px; }
+  button.ghost:active { box-shadow: 0 2px 0 #d5e0e9; }
 
-  .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin: 8px 0 22px; }
-  .slot {
-    border: 3px dashed #c5d6e2; border-radius: 20px; padding: 10px; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 6px; background: #f7fafc;
+  .picks { margin: 4px 0 20px; color: #7b93a5; font-size: 15px; }
+  .picks b { color: #1d5f8a; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 14px; margin: 6px 0 22px; }
+  .tile {
+    border: 3px solid #e4ecf2; background: #f7fafc; border-radius: 22px; padding: 12px 8px;
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;
   }
-  .slot.over { border-color: #ffb300; background: #fff6e0; }
-  .slot.filled { border-style: solid; border-color: #7ec8f0; background: #fff; }
-  .slot canvas { width: 72px; height: 72px; object-fit: contain; }
-  .slot b { font-size: 13px; color: #5b7285; }
-  .hint { font-size: 14px; color: #8aa2b3; margin-top: 4px; }
+  .tile canvas { width: 92px; height: 92px; }
+  .tile b { font-size: 15px; color: #5b7285; }
+  .tile.on { border-color: #ffb300; background: #fff8e8; }
+  .tile.on::after {
+    content: '\2713'; position: absolute; top: -10px; right: -8px;
+    width: 30px; height: 30px; border-radius: 50%; background: #ffb300; color: #fff;
+    font-size: 17px; font-weight: 900; display: grid; place-items: center;
+  }
+  .tile.over { border-color: #4fb3f0; background: #eaf6ff; }
+  .hint { font-size: 14px; color: #93a8b8; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -78,72 +87,97 @@
 <canvas id="game"></canvas>
 
 <div class="hud">
-  <div class="score"><span id="score">0</span><small>CAUGHT</small></div>
-  <div class="level" id="level">Level 1</div>
+  <div class="score"><span id="score">0</span><small id="scoreLabel">CAUGHT</small></div>
+  <div class="right">
+    <span class="pill" id="level">Level 1</span>
+    <button class="pill" id="btnHome">Menu</button>
+  </div>
 </div>
 
 <div class="banner" id="banner"><span></span></div>
 
-<div class="sheet" id="startSheet">
+<div class="sheet" id="homeSheet">
   <div class="card">
     <h1>Rain Falling</h1>
-    <p>Move the cat with your finger or the mouse. Catch every fish.</p>
+    <p>Pick a game.</p>
     <div class="row">
-      <button id="playBtn">Play</button>
-      <button class="ghost" id="artBtn">Use our drawings</button>
+      <button id="btnCatch">Catch</button>
+      <button class="blue" id="btnDodge">Dodge</button>
+    </div>
+    <div class="picks" id="picks"></div>
+    <div class="row">
+      <button class="ghost" id="btnPlayer">Who plays</button>
+      <button class="ghost" id="btnFalling">What falls</button>
     </div>
   </div>
 </div>
 
-<div class="sheet" id="artSheet" hidden>
+<div class="sheet" id="playerSheet" hidden>
   <div class="card">
-    <h1>Our drawings</h1>
-    <p>Drop a photo on a square, or tap it to pick one. White paper around the drawing gets cut out for you.</p>
-    <div class="slots" id="slots"></div>
-    <div class="row">
-      <button id="artDone">Done</button>
-      <button class="ghost" id="artReset">Start over</button>
-    </div>
-    <div class="hint">To keep these drawings forever, save them into the <b>art</b> folder next to this file.</div>
+    <h1>Who plays</h1>
+    <p>Tap the one you want to be.</p>
+    <div class="tiles" id="playerTiles"></div>
+    <div class="row"><button id="playerDone">Done</button></div>
+    <div class="hint">Drop a photo of a new drawing on any square to swap its picture.</div>
+  </div>
+</div>
+
+<div class="sheet" id="fallingSheet" hidden>
+  <div class="card">
+    <h1>What falls</h1>
+    <p>Tap the ones you want falling from the sky. Pick as many as you like.</p>
+    <div class="tiles" id="fallingTiles"></div>
+    <div class="row"><button id="fallingDone">Done</button></div>
+    <div class="hint">Drop a photo of a new drawing on any square to swap its picture.</div>
   </div>
 </div>
 
 <script>
 // ---------------------------------------------------------------------------
 // Rain Falling. One file, no build step, no libraries.
-// Art slots load from art/*.png on startup, or from photos dropped on the page.
+//
+// Every drawing sits in one library and can take either job: the one you play
+// as, or one of the things falling from the sky. Nothing is a "player drawing"
+// or a "falling drawing" by nature, the two pick screens decide.
 // ---------------------------------------------------------------------------
 
-// `scale` sizes a drawing against the others: a bold simple shape reads fine
-// small, a busy one with writing in it needs the room.
-const SLOTS = [
-  { key: 'catcher', label: 'Rain',    file: 'art/rain.png',   emoji: '\u{1F431}' },
-  { key: 'i1',      label: 'Fish',    file: 'art/item-1.png', emoji: '\u{1F41F}' },
-  { key: 'i2',      label: 'Cocoa',   file: 'art/item-2.png', emoji: '\u2B50',    scale: 1.7 },
-  { key: 'i3',      label: 'Thing 3', file: 'art/item-3.png', emoji: '\u{1F34E}' },
-  { key: 'i4',      label: 'Thing 4', file: 'art/item-4.png', emoji: '\u{1F338}' },
-  { key: 'i5',      label: 'Thing 5', file: 'art/item-5.png', emoji: '\u{1F36A}' },
+const ART = [
+  { key: 'cat',   name: 'Cat',   file: 'art/cat.png',   emoji: '\u{1F431}' },
+  { key: 'fish',  name: 'Fish',  file: 'art/fish.png',  emoji: '\u{1F41F}' },
+  { key: 'cocoa', name: 'Cocoa', file: 'art/cocoa.png', emoji: '☕', fallScale: 1.7, playScale: 1.25 },
+  { key: 'jet',   name: 'Jet',   file: 'art/jet.png',   emoji: '✈', playScale: 1.15 },
 ];
-const BY_KEY = Object.fromEntries(SLOTS.map(s => [s.key, s]));
-const ITEM_SLOTS = SLOTS.slice(1);
-
-// Only drop things Rain has actually drawn. Before any drawing is loaded the
-// emoji stand-ins all fall, so the game is playable on a fresh copy.
-function fallingKeys() {
-  const drawn = ITEM_SLOTS.filter(s => s.hasPhoto);
-  return (drawn.length ? drawn : ITEM_SLOTS).map(s => s.key);
-}
+const BY_KEY = Object.fromEntries(ART.map(a => [a.key, a]));
+const pic = {};   // key -> canvas holding that drawing
 
 const SKIES = [
   ['#8fd6ff', '#d9f2ff'], ['#ffd6a5', '#ffeedd'], ['#c3b8ff', '#eae6ff'],
   ['#a8e6cf', '#e4fff4'], ['#ffc6d9', '#ffeaf2'],
 ];
 const CONFETTI = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#ff8fd1', '#ffa45c'];
+const SPIN_TIME = 0.85;   // how long the player tumbles after a hit
+const SAFE_TIME = 1.5;    // can't be hit again until this runs out
 
-const art = {};            // key -> canvas
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0;
+
+// --- what the player has chosen ---------------------------------------------
+
+const prefs = { player: 'cat', falling: ['fish', 'cocoa'] };
+
+function savePrefs() {
+  try { localStorage.setItem('rain-falling', JSON.stringify(prefs)); } catch (e) { /* file:// */ }
+}
+function loadPrefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('rain-falling') || 'null');
+    if (!saved) return;
+    if (BY_KEY[saved.player]) prefs.player = saved.player;
+    const kept = (saved.falling || []).filter(k => BY_KEY[k]);
+    if (kept.length) prefs.falling = kept;
+  } catch (e) { /* nothing saved yet */ }
+}
 
 // --- art loading ------------------------------------------------------------
 
@@ -159,6 +193,8 @@ function emojiCanvas(ch, size = 256) {
 }
 
 // Paint a photo onto a canvas, drop the paper background, crop to the drawing.
+// tools/cutout.py does a better job offline; this is for a photo dropped in
+// during play, when there is no time to go and run a script.
 function cutout(source) {
   const maxSide = 480;
   const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
@@ -184,7 +220,7 @@ function dropBackground(img, w, h) {
   const flat = i => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
 
   const edge = [];
-  for (let x = 0; x < w; x++) { edge.push(bright((x) * 4), bright(((h - 1) * w + x) * 4)); }
+  for (let x = 0; x < w; x++) { edge.push(bright(x * 4), bright(((h - 1) * w + x) * 4)); }
   for (let y = 0; y < h; y++) { edge.push(bright((y * w) * 4), bright((y * w + w - 1) * 4)); }
   edge.sort((a, b) => a - b);
   const paper = edge[Math.floor(edge.length / 2)];
@@ -252,13 +288,11 @@ function loadImage(src) {
   });
 }
 
-async function loadArtFolder() {
-  for (const slot of SLOTS) {
-    art[slot.key] = emojiCanvas(slot.emoji);
-    try {
-      art[slot.key] = cutout(await loadImage(slot.file));
-      slot.hasPhoto = true;
-    } catch (e) { /* no drawing saved for this slot yet */ }
+async function loadArt() {
+  for (const a of ART) {
+    pic[a.key] = emojiCanvas(a.emoji);
+    try { pic[a.key] = cutout(await loadImage(a.file)); }
+    catch (e) { /* no drawing saved for this one yet, the emoji stands in */ }
   }
 }
 
@@ -290,18 +324,20 @@ function beep(freq, dur = 0.14, type = 'sine', vol = 0.16, delay = 0) {
   o.stop(t + dur + 0.03);
 }
 
+function unlockAudio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+}
+
 // --- game state -------------------------------------------------------------
 
 const game = {
+  mode: 'catch',
   running: false,
-  score: 0,
-  combo: 0,
-  level: 1,
-  catcherX: 0.5,      // 0..1 across the screen
-  targetX: 0.5,
-  items: [],
-  bits: [],
-  clouds: [],
+  score: 0, combo: 0, level: 1, time: 0,
+  x: 0.5, targetX: 0.5,
+  spin: 0, safe: 0,
+  items: [], bits: [], clouds: [],
   spawnIn: 0.6,
 };
 
@@ -319,25 +355,23 @@ function makeClouds() {
   game.clouds = [];
   for (let i = 0; i < 5; i++) {
     game.clouds.push({
-      x: Math.random(),
-      y: 0.08 + Math.random() * 0.35,
-      s: 0.6 + Math.random() * 0.8,
-      v: 0.008 + Math.random() * 0.016,
+      x: Math.random(), y: 0.08 + Math.random() * 0.35,
+      s: 0.6 + Math.random() * 0.8, v: 0.008 + Math.random() * 0.016,
     });
   }
 }
 
-const catcherHeight = () => Math.min(H * 0.2, W * 0.32);
-const catcherY = () => H - catcherHeight() * 0.55 - H * 0.04;
+const playerArt = () => pic[prefs.player] || pic[ART[0].key];
+const playerHeight = () => Math.min(H * 0.2, W * 0.32) * (BY_KEY[prefs.player].playScale || 1);
+const playerY = () => H - Math.min(H * 0.2, W * 0.32) * 0.55 - H * 0.04;
 const itemHeight = () => Math.min(H * 0.11, W * 0.2);
 
 function spawn() {
-  const keys = fallingKeys();
-  const key = keys[Math.floor(Math.random() * keys.length)];
-  const size = itemHeight() * (BY_KEY[key].scale || 1) * (0.85 + Math.random() * 0.35);
+  const key = prefs.falling[Math.floor(Math.random() * prefs.falling.length)];
+  const size = itemHeight() * (BY_KEY[key].fallScale || 1) * (0.85 + Math.random() * 0.35);
   game.items.push({
     key, size,
-    x: size * 0.6 + Math.random() * (W - size * 1.2),
+    x: size * 0.6 + Math.random() * Math.max(1, W - size * 1.2),
     y: -size,
     vy: (H + size) / (3.4 - Math.min(2.0, (game.level - 1) * 0.22)),
     rot: (Math.random() - 0.5) * 0.5,
@@ -351,12 +385,8 @@ function burst(x, y) {
     const a = Math.random() * Math.PI * 2;
     const sp = 120 + Math.random() * 260;
     game.bits.push({
-      x, y,
-      vx: Math.cos(a) * sp,
-      vy: Math.sin(a) * sp - 120,
-      r: 4 + Math.random() * 7,
-      life: 0.6 + Math.random() * 0.4,
-      age: 0,
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120,
+      r: 4 + Math.random() * 7, life: 0.6 + Math.random() * 0.4, age: 0,
       color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)],
     });
   }
@@ -370,44 +400,74 @@ function showBanner(text) {
   el.classList.add('show');
 }
 
-function catchItem(item) {
+function showScore() {
+  document.getElementById('score').textContent =
+    game.mode === 'dodge' ? Math.floor(game.time) : game.score;
+}
+
+function levelUp() {
+  game.level++;
+  document.getElementById('level').textContent = 'Level ' + game.level;
+  showBanner('Level ' + game.level + '!');
+  [0, 0.09, 0.18, 0.27].forEach((d, i) => beep(NOTES[i + 2], 0.2, 'triangle', 0.16, d));
+}
+
+function catchItem(it) {
   game.score++;
   game.combo++;
-  burst(item.x, item.y);
+  burst(it.x, it.y);
   beep(NOTES[Math.min(game.combo - 1, NOTES.length - 1)], 0.16, 'triangle', 0.18);
-  document.getElementById('score').textContent = game.score;
+  showScore();
+  if (game.score % 10 === 0) levelUp();
+  else if (game.combo === 5) showBanner('Nice one, Rain!');
+  else if (game.combo === 15) showBanner('Wow!');
+}
 
-  if (game.score % 10 === 0) {
-    game.level++;
-    document.getElementById('level').textContent = 'Level ' + game.level;
-    showBanner('Level ' + game.level + '!');
-    [0, 0.09, 0.18, 0.27].forEach((d, i) => beep(NOTES[i + 2], 0.2, 'triangle', 0.16, d));
-  } else if (game.combo === 5) {
-    showBanner('Nice one, Rain!');
-  } else if (game.combo === 15) {
-    showBanner('Wow!');
-  }
+// Dodge mode: a hit costs no lives, it just sends the player tumbling and
+// makes them safe for a moment so one collision can't turn into five.
+function hitItem(it) {
+  game.spin = SPIN_TIME;
+  game.safe = SAFE_TIME;
+  game.combo = 0;
+  burst(it.x, it.y);
+  [440, 340, 260].forEach((f, i) => beep(f, 0.18, 'square', 0.13, i * 0.07));
+  showBanner('Whoa!');
 }
 
 function update(dt) {
+  game.time += dt;
+
   for (const c of game.clouds) {
     c.x += c.v * dt;
     if (c.x > 1.25) c.x = -0.25;
   }
 
+  game.spin = Math.max(0, game.spin - dt);
+  game.safe = Math.max(0, game.safe - dt);
+
   const ease = 1 - Math.pow(0.0006, dt);
-  game.catcherX += (game.targetX - game.catcherX) * ease;
+  game.x += (game.targetX - game.x) * ease;
+
+  if (game.mode === 'dodge') {
+    showScore();
+    // dodging ramps slower than catching: you have to avoid everything at once,
+    // where catching only asks you to reach one thing
+    const earned = 1 + Math.floor(game.time / 15);
+    if (earned > game.level) levelUp();
+  }
 
   game.spawnIn -= dt;
   if (game.spawnIn <= 0) {
     spawn();
-    game.spawnIn = Math.max(0.42, 1.1 - game.level * 0.07);
+    game.spawnIn = game.mode === 'dodge'
+      ? Math.max(0.4, 0.95 - game.level * 0.06)
+      : Math.max(0.42, 1.1 - game.level * 0.07);
   }
 
-  const cx = game.catcherX * W;
-  const ch = catcherHeight();
-  const cw = (art.catcher.width / art.catcher.height) * ch;
-  const mouthTop = catcherY() - ch * 0.5;
+  const px = game.x * W;
+  const ph = playerHeight();
+  const pw = (playerArt().width / playerArt().height) * ph;
+  const top = playerY() - ph * 0.5;
 
   for (let i = game.items.length - 1; i >= 0; i--) {
     const it = game.items[i];
@@ -415,14 +475,26 @@ function update(dt) {
     it.sway += dt * 2;
     it.rot += it.spin * dt;
 
-    const bottom = it.y + it.size * 0.35;
-    if (bottom > mouthTop && bottom < mouthTop + ch * 0.7 &&
-        Math.abs(it.x - cx) < cw * 0.45 + it.size * 0.3) {
+    if (game.mode === 'catch') {
+      const bottom = it.y + it.size * 0.35;
+      if (bottom > top && bottom < top + ph * 0.7 && Math.abs(it.x - px) < pw * 0.45 + it.size * 0.3) {
+        game.items.splice(i, 1);
+        catchItem(it);
+        continue;
+      }
+    } else if (game.safe <= 0) {
+      // a tighter box than catching uses: being clipped by a wingtip you can
+      // barely see is the kind of unfair that makes a 7-year-old quit
+      if (it.y > top + ph * 0.12 && it.y < top + ph * 0.88 && Math.abs(it.x - px) < pw * 0.3 + it.size * 0.25) {
+        game.items.splice(i, 1);
+        hitItem(it);
+        continue;
+      }
+    }
+
+    if (it.y - it.size > H) {
       game.items.splice(i, 1);
-      catchItem(it);
-    } else if (it.y - it.size > H) {
-      game.items.splice(i, 1);
-      game.combo = 0;
+      if (game.mode === 'catch') game.combo = 0;
     }
   }
 
@@ -461,12 +533,18 @@ function render() {
   ctx.fillRect(0, H - groundH, W, groundH * 0.25);
 
   for (const it of game.items) {
-    drawArt(art[it.key], it.x + Math.sin(it.sway) * 6, it.y, it.size, it.rot);
+    drawArt(pic[it.key], it.x + Math.sin(it.sway) * 6, it.y, it.size, it.rot);
   }
 
-  const ch = catcherHeight();
-  const bob = Math.sin(Date.now() / 420) * ch * 0.04;
-  drawArt(art.catcher, game.catcherX * W, catcherY() + bob, ch, Math.sin(Date.now() / 700) * 0.05);
+  const ph = playerHeight();
+  const spinning = game.spin > 0;
+  const rot = spinning
+    ? (1 - game.spin / SPIN_TIME) * Math.PI * 2
+    : Math.sin(Date.now() / 700) * 0.05;
+  const bob = spinning ? 0 : Math.sin(Date.now() / 420) * ph * 0.04;
+  if (game.safe > 0 && !spinning) ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 70));
+  drawArt(playerArt(), game.x * W, playerY() + bob, ph, rot);
+  ctx.globalAlpha = 1;
 
   for (const b of game.bits) {
     ctx.globalAlpha = Math.max(0, 1 - b.age / b.life);
@@ -498,53 +576,75 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') game.targetX = Math.min(0.96, game.targetX + 0.09);
 });
 
-// --- art panel --------------------------------------------------------------
+// --- screens ----------------------------------------------------------------
 
-const slotsEl = document.getElementById('slots');
+const homeSheet = document.getElementById('homeSheet');
+const playerSheet = document.getElementById('playerSheet');
+const fallingSheet = document.getElementById('fallingSheet');
 
-function buildSlots() {
-  slotsEl.innerHTML = '';
-  for (const slot of SLOTS) {
-    const tile = document.createElement('label');
-    tile.className = 'slot' + (slot.hasPhoto ? ' filled' : '');
+function showPicks() {
+  const falling = prefs.falling.map(k => BY_KEY[k].name).join(', ');
+  document.getElementById('picks').innerHTML =
+    'Playing as <b>' + BY_KEY[prefs.player].name + '</b> · falling: <b>' + falling + '</b>';
+}
 
-    const preview = document.createElement('canvas');
-    preview.width = preview.height = 144;
-    const pg = preview.getContext('2d');
-    const src = art[slot.key];
-    const s = Math.min(144 / src.width, 144 / src.height);
-    pg.drawImage(src, (144 - src.width * s) / 2, (144 - src.height * s) / 2, src.width * s, src.height * s);
+function tiles(host, isOn, tap) {
+  host.innerHTML = '';
+  for (const a of ART) {
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (isOn(a) ? ' on' : '');
+
+    const c = document.createElement('canvas');
+    c.width = c.height = 184;
+    const g = c.getContext('2d');
+    const src = pic[a.key];
+    const s = Math.min(184 / src.width, 184 / src.height);
+    g.drawImage(src, (184 - src.width * s) / 2, (184 - src.height * s) / 2, src.width * s, src.height * s);
 
     const name = document.createElement('b');
-    name.textContent = slot.label;
+    name.textContent = a.name;
+    tile.append(c, name);
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.hidden = true;
-    input.addEventListener('change', () => { if (input.files[0]) useFile(slot, input.files[0]); });
-
-    tile.append(preview, name, input);
-
+    tile.addEventListener('click', () => tap(a));
     tile.addEventListener('dragover', e => { e.preventDefault(); tile.classList.add('over'); });
     tile.addEventListener('dragleave', () => tile.classList.remove('over'));
     tile.addEventListener('drop', e => {
       e.preventDefault();
       tile.classList.remove('over');
-      if (e.dataTransfer.files[0]) useFile(slot, e.dataTransfer.files[0]);
+      if (e.dataTransfer.files[0]) usePhoto(a, e.dataTransfer.files[0]);
     });
 
-    slotsEl.append(tile);
+    host.append(tile);
   }
 }
 
-function useFile(slot, file) {
+function drawPlayerTiles() {
+  tiles(document.getElementById('playerTiles'),
+        a => a.key === prefs.player,
+        a => { prefs.player = a.key; savePrefs(); drawPlayerTiles(); beep(880, 0.12, 'triangle', 0.14); });
+}
+
+function drawFallingTiles() {
+  tiles(document.getElementById('fallingTiles'),
+        a => prefs.falling.includes(a.key),
+        a => {
+          const at = prefs.falling.indexOf(a.key);
+          if (at < 0) prefs.falling.push(a.key);
+          else if (prefs.falling.length > 1) prefs.falling.splice(at, 1);
+          else return showBanner('Keep at least one!');
+          savePrefs();
+          drawFallingTiles();
+          beep(at < 0 ? 880 : 520, 0.12, 'triangle', 0.14);
+        });
+}
+
+function usePhoto(a, file) {
   const reader = new FileReader();
   reader.onload = async () => {
-    art[slot.key] = cutout(await loadImage(reader.result));
-    slot.hasPhoto = true;
-    buildSlots();
-    beep(880, 0.12, 'triangle', 0.14);
+    pic[a.key] = cutout(await loadImage(reader.result));
+    drawPlayerTiles();
+    drawFallingTiles();
+    beep(1047, 0.14, 'triangle', 0.15);
   };
   reader.readAsDataURL(file);
 }
@@ -552,41 +652,58 @@ function useFile(slot, file) {
 window.addEventListener('dragover', e => e.preventDefault());
 window.addEventListener('drop', e => e.preventDefault());
 
-// --- wiring -----------------------------------------------------------------
-
-const startSheet = document.getElementById('startSheet');
-const artSheet = document.getElementById('artSheet');
-
-function unlockAudio() {
-  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
-  if (actx.state === 'suspended') actx.resume();
+function goHome() {
+  game.running = false;
+  game.items.length = 0;
+  game.bits.length = 0;
+  showPicks();
+  playerSheet.hidden = true;
+  fallingSheet.hidden = true;
+  homeSheet.hidden = false;
 }
 
-document.getElementById('playBtn').addEventListener('click', () => {
+function start(mode) {
   unlockAudio();
-  startSheet.hidden = true;
+  game.mode = mode;
+  game.score = 0; game.combo = 0; game.level = 1; game.time = 0;
+  game.spin = 0; game.safe = 0;
+  game.items.length = 0; game.bits.length = 0;
+  game.spawnIn = 0.6;
+  game.x = game.targetX = 0.5;
+  document.getElementById('level').textContent = 'Level 1';
+  document.getElementById('scoreLabel').textContent = mode === 'dodge' ? 'SECONDS' : 'CAUGHT';
+  showScore();
+  homeSheet.hidden = true;
   game.running = true;
-  showBanner('Go!');
-});
+  showBanner(mode === 'dodge' ? 'Dodge!' : 'Go!');
+}
 
-document.getElementById('artBtn').addEventListener('click', () => {
+document.getElementById('btnCatch').addEventListener('click', () => start('catch'));
+document.getElementById('btnDodge').addEventListener('click', () => start('dodge'));
+document.getElementById('btnHome').addEventListener('click', goHome);
+
+document.getElementById('btnPlayer').addEventListener('click', () => {
   unlockAudio();
-  buildSlots();
-  artSheet.hidden = false;
+  drawPlayerTiles();
+  homeSheet.hidden = true;
+  playerSheet.hidden = false;
 });
-
-document.getElementById('artDone').addEventListener('click', () => { artSheet.hidden = true; });
-
-document.getElementById('artReset').addEventListener('click', () => {
-  for (const slot of SLOTS) { art[slot.key] = emojiCanvas(slot.emoji); slot.hasPhoto = false; }
-  buildSlots();
+document.getElementById('btnFalling').addEventListener('click', () => {
+  unlockAudio();
+  drawFallingTiles();
+  homeSheet.hidden = true;
+  fallingSheet.hidden = false;
 });
+document.getElementById('playerDone').addEventListener('click', goHome);
+document.getElementById('fallingDone').addEventListener('click', goHome);
 
 (async function boot() {
   resize();
   makeClouds();
-  await loadArtFolder();
-  game.targetX = game.catcherX = 0.5;
+  loadPrefs();
+  await loadArt();
+  showPicks();
+  game.x = game.targetX = 0.5;
   requestAnimationFrame(frame);
 })();
 </script>
