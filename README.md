@@ -3,9 +3,12 @@
 A catching game for Rain, starring her drawings. One HTML file, no install,
 no internet needed.
 
+**Play it: https://shiangx.github.io/rain-falling/**
+
 ## Play it
 
-Double-click `index.html` and press Play. Move the winged cat with your finger
+Open the link above on any phone, tablet or laptop, or double-click
+`index.html` to run it offline. Press Play. Move the winged cat with your finger
 or the mouse and catch the fish. There is no way to lose. Every 10 catches bumps
 the level: fish fall faster and the sky changes color.
 
