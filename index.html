@@ -114,14 +114,17 @@
 // Art slots load from art/*.png on startup, or from photos dropped on the page.
 // ---------------------------------------------------------------------------
 
+// `scale` sizes a drawing against the others: a bold simple shape reads fine
+// small, a busy one with writing in it needs the room.
 const SLOTS = [
   { key: 'catcher', label: 'Rain',    file: 'art/rain.png',   emoji: '\u{1F431}' },
   { key: 'i1',      label: 'Fish',    file: 'art/item-1.png', emoji: '\u{1F41F}' },
-  { key: 'i2',      label: 'Thing 2', file: 'art/item-2.png', emoji: '\u2B50'    },
+  { key: 'i2',      label: 'Cocoa',   file: 'art/item-2.png', emoji: '\u2B50',    scale: 1.7 },
   { key: 'i3',      label: 'Thing 3', file: 'art/item-3.png', emoji: '\u{1F34E}' },
   { key: 'i4',      label: 'Thing 4', file: 'art/item-4.png', emoji: '\u{1F338}' },
   { key: 'i5',      label: 'Thing 5', file: 'art/item-5.png', emoji: '\u{1F36A}' },
 ];
+const BY_KEY = Object.fromEntries(SLOTS.map(s => [s.key, s]));
 const ITEM_SLOTS = SLOTS.slice(1);
 
 // Only drop things Rain has actually drawn. Before any drawing is loaded the
@@ -331,7 +334,7 @@ const itemHeight = () => Math.min(H * 0.11, W * 0.2);
 function spawn() {
   const keys = fallingKeys();
   const key = keys[Math.floor(Math.random() * keys.length)];
-  const size = itemHeight() * (0.85 + Math.random() * 0.35);
+  const size = itemHeight() * (BY_KEY[key].scale || 1) * (0.85 + Math.random() * 0.35);
   game.items.push({
     key, size,
     x: size * 0.6 + Math.random() * (W - size * 1.2),

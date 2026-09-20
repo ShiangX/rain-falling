@@ -23,6 +23,10 @@ def main():
     ap.add_argument('photo')
     ap.add_argument('out')
     ap.add_argument('--crop', nargs=4, type=int, metavar=('X0', 'Y0', 'X1', 'Y1'))
+    ap.add_argument('--erase', nargs=4, type=int, action='append', default=[],
+                    metavar=('X0', 'Y0', 'X1', 'Y1'),
+                    help='blank a box before picking the drawing, in the same photo '
+                         'pixels as --crop; repeatable, for a neighbour that overlaps')
     ap.add_argument('--size', type=int, default=560, help='max side of the finished sprite')
     ap.add_argument('--ink', type=float, default=0.20, help='0-1, lower catches fainter pencil')
     ap.add_argument('--close', type=int, default=9, help='radius that bridges gaps in an outline')
@@ -32,6 +36,7 @@ def main():
     args = ap.parse_args()
 
     img = ImageOps.exif_transpose(Image.open(args.photo)).convert('RGB')
+    ox, oy = (args.crop[0], args.crop[1]) if args.crop else (0, 0)
     if args.crop:
         img = img.crop(tuple(args.crop))
     scale = min(1.0, args.size / max(img.size))
@@ -51,6 +56,11 @@ def main():
     darkness = np.clip((paper - lum) / (paper * 0.42), 0, 1)
     colour = np.clip((chroma - 12) / 45.0, 0, 1)
     ink = np.maximum(darkness, colour)
+
+    for bx0, by0, bx1, by1 in args.erase:
+        x0e, x1e = round((bx0 - ox) * scale), round((bx1 - ox) * scale)
+        y0e, y1e = round((by0 - oy) * scale), round((by1 - oy) * scale)
+        ink[max(0, y0e):max(0, y1e), max(0, x0e):max(0, x1e)] = 0.0
 
     # the drawing we want is the biggest connected run of ink in the crop
     binary = ink > args.ink

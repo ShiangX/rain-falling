@@ -18,10 +18,14 @@ Rain drew both of them. The originals are in `art/source/`, the cut-out sprites
 the game loads are:
 
     art/rain.png      the winged cat, the player
-    art/item-1.png    the fish in the party hat, the thing that falls
+    art/item-1.png    the fish in the party hat
+    art/item-2.png    the Free Hot Coco For All sign
 
-Slots `item-2.png` through `item-5.png` are empty. Only slots that have a real
-drawing ever fall, so the game drops fish and nothing else until more are added.
+Slots `item-3.png` through `item-5.png` are empty. Only slots that have a real
+drawing ever fall, so nothing lands that she didn't draw.
+
+A drawing packed with detail gets lost at fish size, so `SLOTS` carries a
+`scale` per drawing. The cocoa sign runs at 1.7 to keep its writing readable.
 
 ## Adding a drawing
 
